@@ -1,0 +1,349 @@
+import random
+from enum import Enum
+
+# Clase para gestionar el cementerio de cartas
+class Cementerio:
+    def __init__(self):
+        self.jugador_cementerio = []  # Cartas del jugador
+        self.maquina_cementerio = []  # Cartas de la máquina
+
+    def agregar_carta(self, carta, jugador=True):
+        if jugador:
+            self.jugador_cementerio.append(carta)
+        else:
+            self.maquina_cementerio.append(carta)
+
+    def mostrar_cementerio(self):
+        print("\nTablero-Monstruo del jugador:")
+        for carta in self.jugador_cementerio:
+          if carta.tipo == "Monstruo":
+            print(f"[{carta.nombre} ({carta.tipo}) | ATK: {carta.ataque} | DEF: {carta.defensa}]")
+          else:
+            print(f"[{carta.nombre} ({carta.tipo})]")
+
+        print("\nTablero-Monstruo de la máquina:")
+        for carta in self.maquina_cementerio:
+          if carta.tipo == "Monstruo":
+            print(f"[{carta.nombre} ({carta.tipo}) | ATK: {carta.ataque} | DEF: {carta.defensa}]")
+          else:
+              print(f"[{carta.nombre} ({carta.tipo})]")
+
+
+
+class TipoMonstruo(Enum):
+    LANZADOR_DE_CONJUROS = "L"
+    DRAGON = "D"
+    ZOMBI = "Z"
+    GUERRERO = "G"
+    BESTIA = "B"
+    DEMONIO = "D"
+
+class Atributo(Enum):
+    OSCURIDAD = "OSCURIDAD"
+    LUZ = "LUZ"
+    TIERRA = "TIERRA"
+    AGUA = "AGUA"
+    FUEGO = "FUEGO"
+    VIENTO = "VIENTO"
+
+class Carta:
+    def __init__(self, tipo, nombre, descripcion, ataque=None, defensa=None, tipo_monstruo=None, atributo=None, incremento=None, afectado=None):
+        self.tipo = tipo
+        self.nombre = nombre
+        self.descripcion = descripcion
+        self.ataque = ataque
+        self.defensa = defensa
+        self.tipo_monstruo = tipo_monstruo
+        self.atributo = atributo
+        self.incremento = incremento
+        self.afectado = afectado
+        self.posicion = None
+
+def procesar_cartas(contenido):
+    cartas = []
+    for linea in contenido:
+        if linea.startswith("#") or not linea.strip():
+            continue  
+
+        partes = linea.strip().split("|")
+        if partes[0] == "Monstruo":
+            cartas.append(Carta(
+                tipo="Monstruo",
+                nombre=partes[1],
+                descripcion=partes[2],
+                ataque=int(partes[3]),
+                defensa=int(partes[4]),
+                tipo_monstruo=partes[5],
+                atributo=partes[6]
+            ))
+        elif partes[0] == "Magica":
+            cartas.append(Carta(
+                tipo="Magica",
+                nombre=partes[1],
+                descripcion=partes[2],
+                incremento=int(partes[3]),
+                afectado=partes[4]
+            ))
+        elif partes[0] == "Trampa":
+            cartas.append(Carta(
+                tipo="Trampa",
+                nombre=partes[1],
+                descripcion=partes[2],
+                atributo=partes[3]
+            ))
+    return cartas
+
+class Juego:
+    def __init__(self):
+        self.jugador_puntos = 4000
+        self.maquina_puntos = 4000
+        self.jugador_tablero = {"monstruos": [], "magicas_trampas": []}
+        self.maquina_tablero = {"monstruos": [], "magicas_trampas": []}
+        self.jugador_mano = []
+        self.maquina_mano = []
+        self.cartas = []
+        self.turno_contador = 0
+        self.cementerio = Cementerio() 
+
+    def mostrar_puntajes(self):
+        print("\nPuntajes actuales:")
+        print(f"Jugador: {self.jugador_puntos} puntos")
+        print(f"Máquina: {self.maquina_puntos} puntos")
+
+    def cargar_cartas(self, archivo):
+        with open(archivo, "r") as file:
+            contenido = file.readlines()
+        self.cartas = procesar_cartas(contenido)
+
+    def construir_mazo(self):
+        mazo = random.sample(self.cartas, 30)  
+        return mazo
+
+    def iniciar_juego(self):
+        print("Iniciando juego..")
+        mazo_jugador = self.construir_mazo()
+        mazo_maquina = self.construir_mazo()
+        self.jugador_mano = mazo_jugador[:4]
+        self.maquina_mano = mazo_maquina[:4]
+        self.jugador_mazo = mazo_jugador[4:]
+        self.maquina_mazo = mazo_maquina[4:]
+        turno = random.choice(["Jugador", "Máquina"])
+        print(f"El {turno} empieza jugando.")
+        return turno
+
+    def tomar_carta(self, turno):
+        if turno == "Jugador" and self.jugador_mazo:
+            carta = self.jugador_mazo.pop(0)
+            self.jugador_mano.append(carta)
+            print(f"El jugador robó: {carta.nombre}")
+        elif turno == "Máquina" and self.maquina_mazo:
+            carta = self.maquina_mazo.pop(0)
+            self.maquina_mano.append(carta)
+            print("La máquina robó una carta.")
+
+    def realizar_ataque(self):
+                if not self.jugador_tablero["monstruos"]:
+                    print("No tienes monstruos en el tablero para atacar.")
+                    return
+                if not self.maquina_tablero["monstruos"]:
+                    print("La máquina no tiene monstruos en el tablero. Puedes atacar directamente sus puntos de vida.")
+                    atacante = self.jugador_tablero["monstruos"][0]  # Elige el primer monstruo del jugador por simplicidad
+                    print(f"\nAtacas directamente con {atacante.nombre} ({atacante.ataque} ATK).")
+                    self.maquina_puntos -= atacante.ataque
+                    print(f"La máquina pierde {atacante.ataque} puntos.")
+                    return
+
+                print("\nElige el monstruo de la máquina al que quieres atacar:")
+                for i, monstruo in enumerate(self.maquina_tablero["monstruos"]):
+                    print(f"{i + 1}. {monstruo.nombre} | ATK: {monstruo.ataque}, DEF: {monstruo.defensa}")
+                intentos = 3
+                while intentos>0:
+                    try:
+                        eleccion = int(input("Selecciona el número del monstruo para atacar: ")) - 1
+                        if 0 <= eleccion < len(self.maquina_tablero["monstruos"]):
+                            defensor = self.maquina_tablero["monstruos"][eleccion]
+                            break
+                        else:
+                            intentos-=1
+                            print(f"Número inválido. Te quedan {intentos} intentos.")
+                            if intentos == 0:
+                                print("Se acabaron los intentos. El turno termina.")
+                                return
+                    except ValueError:
+                        intentos-=1
+                        print(f"Entrada inválida. Te quedan {intentos} intentos.")
+                        if intentos == 0:
+                            print("Se acabaron los intentos. El turno termina.")
+                            return
+
+                atacante = self.jugador_tablero["monstruos"][0]  # Por simplicidad, el primer monstruo
+
+                print(f"\nEl jugador ataca con {atacante.nombre} ({atacante.ataque} ATK).")
+                print(f"La máquina defiende con {defensor.nombre} ({defensor.defensa} DEF).")
+
+                if atacante.ataque > defensor.defensa:
+                    puntos_perdidos = atacante.ataque - defensor.defensa
+                    self.maquina_puntos = max(0, self.maquina_puntos - puntos_perdidos)
+                    print(f"La máquina pierde {puntos_perdidos} puntos.")
+                    self.cementerio.agregar_carta(defensor, jugador=False)  # Carta al cementerio
+                    self.maquina_tablero["monstruos"].remove(defensor)
+                elif atacante.ataque < defensor.defensa:
+                    puntos_perdidos = defensor.defensa - atacante.ataque
+                    self.jugador_puntos = max(0, self.jugador_puntos - puntos_perdidos)
+                    print(f"El jugador pierde {puntos_perdidos} puntos.")
+                    self.cementerio.agregar_carta(atacante, jugador=True)  # Carta al cementerio
+                    self.jugador_tablero["monstruos"].remove(atacante)
+                else:
+                    print("Ambos monstruos son destruidos.")
+                    self.cementerio.agregar_carta(atacante, jugador=True)
+                    self.cementerio.agregar_carta(defensor, jugador=False)
+                    self.jugador_tablero["monstruos"].remove(atacante)
+                    self.maquina_tablero["monstruos"].remove(defensor)
+
+
+
+    def mostrar_cementerio(self):
+        self.cementerio.mostrar_cementerio()
+
+    def verificar_ganador(self):
+        if self.jugador_puntos <= 0:
+            print("\nTerminó el juego. La máquina gana con 0 puntos de vida restantes del jugador.")
+            return True
+        elif self.maquina_puntos <= 0:
+            print("\nTerminó el juego. El jugador gana con 0 puntos de vida restantes de la máquina.")
+            return True
+        return False
+
+    def jugar(self):
+        turno = self.iniciar_juego()
+        while not(self.verificar_ganador()):
+            self.jugar_turno(turno)
+            if self.verificar_ganador():
+              break
+            self.realizar_ataque()  
+            if self.verificar_ganador():
+              break
+            self.mostrar_puntajes() 
+            self.mostrar_cementerio()
+            turno = "Jugador" if turno == "Máquina" else "Máquina"
+
+    def jugar_turno(self, turno):
+        print(f"\nTurno de {turno}")
+        self.tomar_carta(turno)
+        if self.turno_contador>2:
+            if turno =="Jugador":
+                self.realizar_ataque()
+                self.mostrar_puntajes()
+        else:
+            print("No se puede atacar en la primera batalla. ")
+
+        if turno == "Jugador":
+            print("Tu mano:")
+            for i, carta in enumerate(self.jugador_mano):
+                if carta.tipo == "Monstruo":
+                    print(f"{i + 1}. {carta.nombre} ({carta.tipo}) - {carta.descripcion} | ATK: {carta.ataque}, DEF: {carta.defensa}")
+                else:
+                    print(f"{i + 1}. {carta.nombre} ({carta.tipo}) - {carta.descripcion}")
+            eleccion = int(input("Selecciona una carta para jugar (1-5): ")) - 1
+            carta_jugada = self.jugador_mano.pop(eleccion)
+
+            if carta_jugada.tipo == "Monstruo":
+                posicion = input("¿Quieres jugar esta carta en ataque (boca arriba) o defensa (boca abajo)? (ataque/defensa): ").lower()
+                carta_jugada.posicion = "ataque" if posicion == "ataque" else "defensa"
+                self.jugador_tablero["monstruos"].append(carta_jugada)
+                estado = "boca arriba" if carta_jugada.posicion == "ataque" else "boca abajo"
+                print(f"Has jugado el monstruo {carta_jugada.nombre} en {estado}.")
+                cambiar_posicion = input("¿Quieres cambiar la posición de algún monstruo en el tablero? (s/n): ").lower()
+                if cambiar_posicion == "s":
+                  self.cambiar_posicion()
+            elif carta_jugada.tipo == "Magica":
+                self.jugador_tablero["magicas_trampas"].append(carta_jugada)
+                print(f"Has jugado la carta mágica: {carta_jugada.nombre}")
+                self.activar_efecto_magico(carta_jugada)
+            elif carta_jugada.tipo == "Trampa":
+                self.jugador_tablero["magicas_trampas"].append(carta_jugada)
+                print(f"Has jugado la carta trampa: {carta_jugada.nombre}")
+                self.activar_efecto_trampa(carta_jugada)
+
+        else:
+            if self.maquina_mano:
+                carta_jugada = self.maquina_mano.pop(0)
+                if carta_jugada.tipo == "Monstruo":
+                    carta_jugada.posicion = "ataque"  
+                    self.maquina_tablero["monstruos"].append(carta_jugada)
+                    print(f"La máquina jugó el monstruo {carta_jugada.nombre} en ataque.")
+                elif carta_jugada.tipo in ["Magica", "Trampa"]:
+                    self.maquina_tablero["magicas_trampas"].append(carta_jugada)
+                    print(f"La máquina jugó una carta {carta_jugada.tipo.lower()}: {carta_jugada.nombre}.")
+        self.turno_contador+=1
+
+    def activar_efecto_magico(self, carta):
+      print(f"Activando el efecto de la carta mágica: {carta.nombre}")
+      if carta.incremento and carta.afectado:
+          print(f"Aplicando un incremento de {carta.incremento} a monstruos del tipo {carta.afectado}.")
+          for monstruo in self.jugador_tablero["monstruos"]:
+              if monstruo.tipo_monstruo == carta.afectado:
+                  monstruo.ataque += carta.incremento
+                  print(f"{monstruo.nombre} ahora tiene {monstruo.ataque} ATK.")
+      elif carta.incremento and not carta.afectado:
+          print("La carta mágica no tiene un tipo afectado válido.")
+
+    def activar_efecto_trampa(self, carta):
+      print(f"Activando el efecto de la carta trampa: {carta.nombre}")
+      if carta.atributo:
+          print(f"Bloqueando ataques de monstruos con el atributo {carta.atributo}.")
+          monstruos_bloqueados = [
+              monstruo for monstruo in self.maquina_tablero["monstruos"]
+              if monstruo.atributo == carta.atributo
+          ]
+          if monstruos_bloqueados:
+              print("Los siguientes monstruos de la máquina no pueden atacar:")
+              for monstruo in monstruos_bloqueados:
+                  print(f"{monstruo.nombre}")
+          else:
+              print("No hay monstruos en el tablero de la máquina con ese atributo.")
+contenido_cartas = """\
+# Cartas de Monstruo
+Monstruo|Dragón Rojo|Un dragón imponente que destruye todo a su paso.|3000|2500|D|FUEGO
+Monstruo|Guerrero Espadachín|Un maestro en el uso de la espada.|1800|1500|G|TIERRA
+Monstruo|Zombi Despierto|Un no-muerto que ataca sin piedad.|1500|1200|Z|OSCURIDAD
+Monstruo|Bestia Salvaje|Una criatura feroz con garras afiladas.|2000|1000|B|TIERRA
+Monstruo|Demonio Siniestro|Una entidad oscura que siembra terror.|2500|2000|O|OSCURIDAD
+Monstruo|Mago Arcano|Un hechicero experto en conjuros poderosos.|1700|2200|L|LUZ
+Monstruo|Fénix|Un ave inmortal que resucita de sus cenizas.|2400|1800|D|FUEGO
+Monstruo|Caballero de Acero|Un guerrero blindado que nunca retrocede.|2300|2000|G|TIERRA
+Monstruo|Luchador Zombi|Un luchador muerto viviente.|1700|1600|Z|OSCURIDAD
+Monstruo|Ogro Gigante|Un monstruo de gran tamaño y fuerza.|2800|2400|B|TIERRA
+Monstruo|Halcón de Fuego|Un halcón que lanza fuego a sus enemigos.|1500|1200|B|FUEGO
+Monstruo|Golem de Piedra|Un golem que protege el reino con su cuerpo de roca.|2500|3000|B|TIERRA
+Monstruo|Dragón de Hielo|Un dragón con el poder del hielo.|2200|2000|D|AGUA
+Monstruo|Vampiro Nocturno|Un monstruo vampiro que caza durante la noche.|2000|1800|Z|OSCURIDAD
+Monstruo|León de Fuego|Un león feroz con garras de fuego.|1800|1600|B|FUEGO
+Monstruo|Caballero de la Luz|Un guerrero que combate con fuerza y honor.|1900|1600|G|LUZ
+Monstruo|Lince de Viento|Una criatura ágil de viento que puede esquivar ataques.|1500|1200|B|VIENTO
+Monstruo|Basilisco|Una criatura mítica cuyo vistazo petrifica.|2200|2100|Z|TIERRA
+Monstruo|Manticora|Un monstruo con el cuerpo de un león y la cola de un escorpión.|2300|2000|B|VIENTO
+Monstruo|Dragón de Acero|Un dragón de acero imparable en combate.|2600|2300|D|TIERRA
+Monstruo|Dragón sin escamas|Un dragón imponente que destruye todo a su paso.|2200|2600|D|FUEGO
+Monstruo|Guerrero de esgrima|Un maestro en el uso de la esgrima.|1900|1900|G|TIERRA
+
+# Cartas Mágicas
+Magica|Espada de Arturo|Aumenta en 200 el ataque de Guerreros.|200|Guerrero
+Magica|Escudo de Chamelote|Aumenta en 200 la defensa de Guerreros.|-200|Guerrero
+Magica|Piedra del Guardián|Aumenta en 300 la defensa de Bestias.|-300|Bestia
+Magica|Oscuridad Total|Aumenta en 400 el ataque de Demonios.|400|Demonio
+# Cartas de Trampa
+Trampa|Tornado de Polvo|Detiene el ataque de monstruos con atributo VIENTO.|VIENTO
+Trampa|Escudo Espectral|Impide el ataque de monstruos con atributo OSCURIDAD.|OSCURIDAD
+Trampa|Prisión de Luz|Bloquea el ataque de monstruos con atributo LUZ.|LUZ
+Trampa|Barrera de Fuego|Anula el ataque de monstruos con atributo FUEGO.|FUEGO
+Trampa|Colapso Terrestre|Detiene el ataque de monstruos con atributo TIERRA.|TIERRA
+
+"""
+nombre_archivo = "cartas.txt"
+with open(nombre_archivo, "w") as archivo:
+    archivo.write(contenido_cartas)
+
+juego = Juego()
+juego.cargar_cartas(nombre_archivo)
+juego.jugar()
